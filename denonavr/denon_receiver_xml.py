@@ -17,12 +17,14 @@ from collections import namedtuple
 XML = namedtuple("XML", ["port", "type", "path", "tags", "filename"])
 
 SAVED_XML = [XML("80", "post", "/goform/AppCommand.xml",
-                 ["GetRenameSource", "GetDeletedSource"],
-                 "AppCommand"),
+                 ["GetFriendlyName"],
+                 "AppCommand-setup"),
              XML("80", "post", "/goform/AppCommand.xml",
                  ["GetAllZonePowerStatus", "GetAllZoneSource",
-                  "GetAllZoneVolume", "GetAllZoneMuteStatus"],
-                 "AppCommand-2016"),
+                  "GetAllZoneVolume", "GetSurroundModeStatus",
+                  "GetToneControl", "GetAllZoneVolume",
+                  "GetAllZoneMuteStatus"],
+                 "AppCommand-update"),
              XML("80", "get", "/goform/Deviceinfo.xml", [], "Deviceinfo.xml"),
              XML("80", "get", "/goform/formMainZone_MainZoneXmlStatus.xml",
                  [], "formMainZone_MainZoneXmlStatus"),
@@ -39,12 +41,14 @@ SAVED_XML = [XML("80", "post", "/goform/AppCommand.xml",
              XML("80", "get", "/goform/formZone3_Zone3XmlStatus.xml",
                  [], "formZone3_Zone3XmlStatus"),
              XML("8080", "post", "/goform/AppCommand.xml",
-                 ["GetRenameSource", "GetDeletedSource"],
-                 "AppCommand"),
+                 ["GetFriendlyName"],
+                 "AppCommand-setup"),
              XML("8080", "post", "/goform/AppCommand.xml",
                  ["GetAllZonePowerStatus", "GetAllZoneSource",
-                  "GetAllZoneVolume", "GetAllZoneMuteStatus"],
-                 "AppCommand-2016"),
+                  "GetAllZoneVolume", "GetSurroundModeStatus",
+                  "GetToneControl", "GetAllZoneVolume",
+                  "GetAllZoneMuteStatus"],
+                 "AppCommand-update"),
              XML("8080", "get", "/goform/Deviceinfo.xml", [],
                  "Deviceinfo.xml"),
              XML("8080", "get", "/goform/formMainZone_MainZoneXmlStatus.xml",
@@ -64,22 +68,30 @@ SAVED_XML = [XML("80", "post", "/goform/AppCommand.xml",
 
 
 def create_post_body(attribute_list):
-    # Prepare POST XML body for AppCommand.xml
-    post_root = ET.Element("tx")
-
-    for attribute in attribute_list:
-        # Append tags for each attribute
-        item = ET.Element("cmd")
-        item.set("id", "1")
-        item.text = attribute
-        post_root.append(item)
-
     # Buffer XML body as binary IO
     body = BytesIO()
-    post_tree = ET.ElementTree(post_root)
-    post_tree.write(body, encoding="utf-8", xml_declaration=True)
 
-    return body.getvalue()
+    chunks = [attribute_list[i:i+5] for i in range(
+        0, len(attribute_list), 5)]
+
+    for i, chunk in enumerate(chunks):
+        # Prepare POST XML body for AppCommand.xml
+        post_root = ET.Element("tx")
+
+        for attribute in chunk:
+            # Append tags for each attribute
+            item = ET.Element("cmd")
+            item.set("id", "1")
+            item.text = attribute
+            post_root.append(item)
+
+        post_tree = ET.ElementTree(post_root)
+        post_tree.write(body, encoding="utf-8", xml_declaration=bool(i == 0))
+
+    body_bytes = body.getvalue()
+    body.close()
+
+    return body_bytes
 
 
 def http_post(host, port, path, tags, filename):
